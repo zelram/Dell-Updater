@@ -1,39 +1,59 @@
-# Create variable to hold the code block.
-$script = {
-	# Locate dcu-cli.exe (checks both x64 and x86 default paths)
-	$dcuPath = @(
-		"C:\Program Files\Dell\CommandUpdate\dcu-cli.exe",
-		"C:\Program Files (x86)\Dell\CommandUpdate\dcu-cli.exe"
-	) | Where-Object { Test-Path $_ } | Select-Object -First 1
 
-	if ($dcuPath) {
-		# Run updates silently and suppress automatic reboots
-		Start-Process -FilePath $dcuPath -ArgumentList "/applyUpdates -reboot=disable" -Wait -NoNewWindow
-	} else {
-		Write-Warning "Dell Command | Update CLI (dcu-cli.exe) was not found."
-	}
+# Check if running as Administrator
+$currentPrincipal = New-Object Security.Principal.WindowsPrincipal(
+    [Security.Principal.WindowsIdentity]::GetCurrent()
+)
+
+$isAdmin = $currentPrincipal.IsInRole(
+    [Security.Principal.WindowsBuiltInRole]::Administrator
+)
+
+if (-not $isAdmin) {
+
+    Write-Host "Administrator privileges required. Relaunching..." -ForegroundColor Yellow
+
+    # Relaunch the current script in an elevated PowerShell window
+    $encodedCommand = [Convert]::ToBase64String(
+        [System.Text.Encoding]::Unicode.GetBytes($MyInvocation.MyCommand.Definition)
+    )
+
+    Start-Process powershell.exe -Verb RunAs -ArgumentList @(
+        '-NoExit'
+        '-NoProfile'
+        '-ExecutionPolicy', 'Bypass'
+        '-EncodedCommand', $encodedCommand
+    )
+
+    # IMPORTANT: Return without closing the original terminal
+    return
 }
 
-$encodedCommand = [Convert]::ToBase64String( [System.Text.Encoding]::Unicode.GetBytes($script.ToString()) )
+Write-Host "Running with Administrator privileges." -ForegroundColor Green
 
-# Start in a new powershell window to ensure it is ran as admin
-# Try catch ensures that if the wt.exe cannot be found it will just default to powershell.
+# Locate DCU-CLI
+$dcuPath = @(
+    "C:\Program Files\Dell\CommandUpdate\dcu-cli.exe",
+    "C:\Program Files (x86)\Dell\CommandUpdate\dcu-cli.exe"
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
 
-try {
-	Start-Process wt.exe -Verb RunAs -ArgumentList @(
-		'powershell'
-		'-NoExit'
-		'-NoProfile'
-		'-ExecutionPolicy', 'Bypass'
-		'-EncodedCommand', $encodedCommand
-	)
+if ($dcuPath) {
+
+    Write-Host "Dell Command Update found: $dcuPath" -ForegroundColor Cyan
+    Write-Host "Starting updates..." -ForegroundColor Yellow
+
+    # Run updates and wait for completion
+    $process = Start-Process -FilePath $dcuPath `
+        -ArgumentList "/applyUpdates -reboot=disable" `
+        -Wait `
+        -PassThru `
+        -NoNewWindow
+
+    Write-Host "Dell Command Update finished. Exit code: $($process.ExitCode)" -ForegroundColor Green
+
+} else {
+
+    Write-Warning "Dell Command | Update CLI (dcu-cli.exe) was not found."
+
 }
 
-catch {
-	Start-Process powershell -Verb RunAs -ArgumentList @(
-		'-NoExit',
-		'-ExecutionPolicy', 'Bypass',
-		'-EncodedCommand', $encodedCommand
-	)
-}
-exit
+Write-Host "Script completed." -ForegroundColor Green
