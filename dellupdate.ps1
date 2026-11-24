@@ -6,7 +6,7 @@ $dcuPath = @(
 
 if ($dcuPath) {
     # Run updates silently and suppress automatic reboots
-    Start-Process -FilePath $dcuPath -ArgumentList "/applyUpdates -silent -reboot=disable" -Wait -NoNewWindow
+    Start-Process -FilePath $dcuPath -ArgumentList "/applyUpdates -reboot=disable" -Wait -NoNewWindow
 } else {
     Write-Warning "Dell Command | Update CLI (dcu-cli.exe) was not found."
 }
