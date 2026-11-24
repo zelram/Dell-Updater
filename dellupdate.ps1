@@ -14,6 +14,8 @@ $script = {
 	}
 }
 
+$encodedCommand = [Convert]::ToBase64String( [System.Text.Encoding]::Unicode.GetBytes($script.ToString()) )
+
 # Start in a new powershell window to ensure it is ran as admin
 # Try catch ensures that if the wt.exe cannot be found it will just default to powershell.
 
@@ -23,7 +25,7 @@ try {
 		'-NoExit'
 		'-NoProfile'
 		'-ExecutionPolicy', 'Bypass'
-		'-Command', $script
+		'-EncodedCommand', $encodedCommand
 	)
 }
 
@@ -31,7 +33,7 @@ catch {
 	Start-Process powershell -Verb RunAs -ArgumentList @(
 		'-NoExit',
 		'-ExecutionPolicy', 'Bypass',
-		'-Command', $script
+		'-EncodedCommand', $encodedCommand
 	)
 }
 exit
